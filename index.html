@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🙏 MMR Vinayaka Donations</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+    h1 {
+      text-align: center;
+    }
+    .totals {
+      font-size: 18px;
+      margin-bottom: 20px;
+    }
+    .section {
+      margin-bottom: 30px;
+    }
+    input[type="text"],
+    input[type="number"],
+    input[type="password"] {
+      padding: 10px;
+      margin: 5px;
+      width: 200px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+    }
+    .list-item {
+      margin: 5px 0;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>🙏 MMR Vinayaka Donations</h1>
+
+  <div id="auth-section">
+    <input type="password" id="admin-password" placeholder="Enter Admin Password" />
+    <button onclick="login()">Login</button>
+  </div>
+
+  <div id="main-content" class="hidden">
+    <div class="totals">
+      <p>Total Donations: ₹<span id="total-donations">0</span></p>
+      <p>Total Expenses: ₹<span id="total-expenses">0</span></p>
+      <p>Remaining: ₹<span id="remaining">0</span></p>
+    </div>
+
+    <div class="section">
+      <h3>👥 Donors</h3>
+      <input type="text" id="donor-name" placeholder="Donor Name" />
+      <input type="number" id="donor-amount" placeholder="Amount" />
+      <button id="add-donor">Add Donor</button>
+      <ul id="donor-list"></ul>
+    </div>
+
+    <div class="section">
+      <h3>📦 Expenses</h3>
+      <input type="text" id="expense-description" placeholder="Expense Description" />
+      <input type="number" id="expense-amount" placeholder="Amount" />
+      <button id="add-expense">Add Expense</button>
+      <ul id="expense-list"></ul>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDdMts-eC28FE4RXGtx9ynW3TZ8M510pic",
+      authDomain: "mmr-vinayaka.firebaseapp.com",
+      projectId: "mmr-vinayaka",
+      storageBucket: "mmr-vinayaka.appspot.com",
+      messagingSenderId: "191068816345",
+      appId: "1:191068816345:web:2e8a3f2812962119c88fc8",
+      measurementId: "G-XHGYPLDH38"
+    };
+
+    const ADMIN_PASSWORD = "vinayaka123";
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const donorList = document.getElementById("donor-list");
+    const expenseList = document.getElementById("expense-list");
+    const totalDonationsEl = document.getElementById("total-donations");
+    const totalExpensesEl = document.getElementById("total-expenses");
+    const remainingEl = document.getElementById("remaining");
+    const mainContent = document.getElementById("main-content");
+    const authSection = document.getElementById("auth-section");
+
+    function login() {
+      const password = document.getElementById("admin-password").value;
+      if (password === ADMIN_PASSWORD) {
+        mainContent.classList.remove("hidden");
+        authSection.classList.add("hidden");
+      } else {
+        alert("Incorrect password");
+      }
+    }
+
+    async function addDonor() {
+      const name = document.getElementById("donor-name").value;
+      const amount = parseFloat(document.getElementById("donor-amount").value);
+      if (name && amount) {
+        await addDoc(collection(db, "donors"), { name, amount });
+      }
+    }
+
+    async function addExpense() {
+      const description = document.getElementById("expense-description").value;
+      const amount = parseFloat(document.getElementById("expense-amount").value);
+      if (description && amount) {
+        await addDoc(collection(db, "expenses"), { description, amount });
+      }
+    }
+
+    function render() {
+      let totalDonations = 0;
+      let totalExpenses = 0;
+
+      onSnapshot(collection(db, "donors"), (snapshot) => {
+        donorList.innerHTML = "";
+        snapshot.forEach((docSnap) => {
+          const donor = docSnap.data();
+          totalDonations += donor.amount;
+          const li = document.createElement("li");
+          li.innerHTML = `${donor.name}: ₹${donor.amount} 
+            <button onclick="deleteDonor('${docSnap.id}')">Delete</button>
+            <button onclick="editDonor('${docSnap.id}', '${donor.name}', ${donor.amount})">Edit</button>`;
+          donorList.appendChild(li);
+        });
+        totalDonationsEl.textContent = totalDonations;
+        updateRemaining();
+      });
+
+      onSnapshot(collection(db, "expenses"), (snapshot) => {
+        expenseList.innerHTML = "";
+        snapshot.forEach((docSnap) => {
+          const expense = docSnap.data();
+          totalExpenses += expense.amount;
+          const li = document.createElement("li");
+          li.innerHTML = `${expense.description}: ₹${expense.amount} 
+            <button onclick="deleteExpense('${docSnap.id}')">Delete</button>
+            <button onclick="editExpense('${docSnap.id}', '${expense.description}', ${expense.amount})">Edit</button>`;
+          expenseList.appendChild(li);
+        });
+        totalExpensesEl.textContent = totalExpenses;
+        updateRemaining();
+      });
+    }
+
+    function updateRemaining() {
+      const total = parseFloat(totalDonationsEl.textContent) - parseFloat(totalExpensesEl.textContent);
+      remainingEl.textContent = total;
+    }
+
+    window.deleteDonor = async function (id) {
+      await deleteDoc(doc(db, "donors", id));
+    }
+
+    window.deleteExpense = async function (id) {
+      await deleteDoc(doc(db, "expenses", id));
+    }
+
+    window.editDonor = function (id, name, amount) {
+      const newName = prompt("Edit Name", name);
+      const newAmount = parseFloat(prompt("Edit Amount", amount));
+      if (newName && newAmount) {
+        updateDoc(doc(db, "donors", id), { name: newName, amount: newAmount });
+      }
+    }
+
+    window.editExpense = function (id, description, amount) {
+      const newDesc = prompt("Edit Description", description);
+      const newAmount = parseFloat(prompt("Edit Amount", amount));
+      if (newDesc && newAmount) {
+        updateDoc(doc(db, "expenses", id), { description: newDesc, amount: newAmount });
+      }
+    }
+
+    document.getElementById("add-donor").addEventListener("click", addDonor);
+    document.getElementById("add-expense").addEventListener("click", addExpense);
+
+    render();
+  </script>
+</body>
+  </html>
+  
